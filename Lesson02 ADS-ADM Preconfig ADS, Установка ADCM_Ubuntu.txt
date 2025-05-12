@@ -1,0 +1,43 @@
+# Lab work Preconfigure ADS
+
+# Disable Ip v6
+echo "
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1" | sudo tee --append /etc/sysctl.conf
+sysctl -p
+sudo systemctl restart systemd-networkd
+ip a  
+	
+
+
+# Editing /etc/hosts
+
+echo "
+10.XXX.0.XX ads-a-XX-adcm.ru-central1.internal adcm
+10.XXX.0.XX ads-a-XX-node1.ru-central1.internal node1
+10.XXX.0.XX ads-a-XX-node2.ru-central1.internal node2
+10.XXX.0.XX ads-a-XX-node3.ru-central1.internal node3" | sudo tee --append /etc/hosts
+
+
+echo "10.129.0.148 winda-test-1.adh-sec.com winda adh-sec.com" | sudo tee -a /etc/hosts
+
+# Check Reverse DNS
+
+nslookup -x 10.XXX.0.XX
+
+
+
+# End of Lab work Preconfigure ADS
+
+# Demo work Install ADCM
+
+sudo apt-get update
+sudo install -m 0755 -d /etc/apt/keyrings && sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && sudo chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "jammy") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+sudo systemctl start docker && sudo systemctl enable docker
+sudo docker run -d --name adcm --restart="always" -p 8000:8000 -v /opt/adcm:/adcm/data hub.arenadata.io/adcm/adcm:2.5
+
+# End of Demo work Install ADCM
