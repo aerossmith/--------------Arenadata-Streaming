@@ -1,0 +1,359 @@
+# Lab work Enable Kerberos
+
+# Allow on ALL HOSTS an AD Domain Controller
+echo "10.129.0.148 winda-test-1.adh-sec.com winda adh-sec.com" | sudo tee -a /etc/hosts
+
+# If the installation fails, you must remove the principals or Run Action -> Disable Kerberos
+
+# From AD: Install AD Certification Services and get CA-root with export Base64-file -> ca-test.cer.
+
+# Kerberos config for ADS/ADPS
+# Enable Existing Active Directory switch and fill in the specified fields:
+Authentication on WEB UIs:
+true
+
+KDC hosts:
+winda-test-1.adh-sec.com
+
+Realm:
+ADH-SEC.COM
+
+Domains:
+adh-sec.com
+.adh-sec.com
+
+Kadmin server:
+winda-test-1.adh-sec.com
+
+Kadmin principal:
+ads-adminXX
+
+Kadmin password:
+ads@2015
+
+Admin DN:
+CN=ads-adminXX,OU=USERS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+
+LDAP URL:
+ldaps://winda-test-1.adh-sec.com
+# ldaps://winda-test-1.adh-sec.com:636
+# ldap://winda-test-1.adh-sec.com:389
+
+Container DN:
+OU=PRINCIPALS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+# OU=StudentXX,OU=Learning,DC=adh-sec,DC=com
+
+TLS CA certificate Path:
+/usr/local/share/ca-certificates/ca-test.crt
+
+TLS CA certificate (optional):
+-----BEGIN CERTIFICATE-----
+MIIDezCCAmOgAwIBAgIQOZQ17d3i8IFHVILb8HdoNjANBgkqhkiG9w0BAQsFADBQ
+MRMwEQYKCZImiZPyLGQBGRYDY29tMRcwFQYKCZImiZPyLGQBGRYHYWRoLXNlYzEg
+MB4GA1UEAxMXYWRoLXNlYy1XSU5EQS1URVNULTEtQ0EwHhcNMjIwOTE0MTkyMTE0
+WhcNMjcwOTE0MTkzMTE0WjBQMRMwEQYKCZImiZPyLGQBGRYDY29tMRcwFQYKCZIm
+iZPyLGQBGRYHYWRoLXNlYzEgMB4GA1UEAxMXYWRoLXNlYy1XSU5EQS1URVNULTEt
+Q0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDNHoZtp2zHmi9r4OYU
+yKSG5oVKOsKuaXt1hy2GEBmD1ChQ8lOGidPz4tUxHPPWZ7My8VRLjkIrACjq2qRQ
+yPb1nPtvyhvIYocIHUfFuLhNJYx/tX0j9HSrMBTFFr+zq8bSIjgDnqtye12xoOwA
+RdH2eLIJvPeXWO/owkMS+IX1xsaPfUQZcLVWFwvhjzhUlKpgEz9HeVytIkKF7GhE
+YSHLWnk/6tst5+eRvfzCE6+YUydABN4ksnQokyKRkbDnX7ay0Gom21mcKIhHlW+Q
+uVKu7u15tSzPssZhYr+pEmjQbkRtbOGSQKMYDJM8FgqSUbl2APYfdJuREV/5UsR2
+dufRAgMBAAGjUTBPMAsGA1UdDwQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MB0GA1Ud
+DgQWBBTIuf4TS/zVzW6MZOSIJF0JNEDCiDAQBgkrBgEEAYI3FQEEAwIBADANBgkq
+hkiG9w0BAQsFAAOCAQEAE5TY3VpNtCxzJA09pvJkNK4m417Gcb0EkNcI+fgpxM/T
+EV9LdW8cRJrfKH/5E5dpxpPN1GEFdq3JNeIurdTsCoOmvw11uxM4u8vPqbPTbfYz
+2hb7uFZp48Ix8swlVRk2nKfb0u3VBaoI6wy10R9EZ9T4/5H9TMaGofcFJcD812K3
+FLlxUUR+DzKMHCfekuUcqSI8yRnTvKSgPKPIu3O5dQg4f0iummjd5JqGEb52Qg0G
+//zQCllwWSTJ8qb0MDvhGY2tmH4C0Mk17TRZ8W+i/RpBLPjVQ08bI6NR7O2bhFQS
+EjOI0fKuB/FPEk2DgGk6iWzm1EGTt4uxOHnTgyqq5w==
+-----END CERTIFICATE-----
+
+# Sometimes Ansible TASK "nifi : Create a token for accessing the REST API"  requires restarting nifi.service:
+# sudo systemctl restart nifi.service
+
+# Check LDAP TLS
+ldapsearch -x -d 1 -LLL -H ldaps://winda-test-1.adh-sec.com -b 'OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com' -D "ads-adminXX@adh-sec.com" "objectclass=group" -W name
+ldapsearch -x -d 1 -ZZLLL -H ldaps://winda-test-1.adh-sec.com -b 'OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com' -D "ads-adminXX@adh-sec.com" "objectclass=group" -W name
+
+# Execute on ALL HOSTS
+sudo update-ca-certificates
+
+# Check tls CA
+sudo cat /etc/ssl/certs/ca-certificates.crt | grep EjOI0fKuB/FPEk2DgGk6iWzm1EGTt4uxOHnTgyqq5w==
+
+keytool -list -rfc -cacerts -storepass changeit | grep -B 2 -A 30 ca-test
+# OR 
+# keytool -list -rfc -keystore /etc/ssl/certs/java/cacerts -storepass changeit | grep -B 2 -A 30 ca-test
+
+# adh-sec-WINDA-TEST-1-CA
+-----BEGIN CERTIFICATE-----
+MIIDezCCAmOgAwIBAgIQOZQ17d3i8IFHVILb8HdoNjANBgkqhkiG9w0BAQsFADBQ
+...
+
+
+# End of Lab work Enable Kerberos
+
+# Lab work Kerberos Auth WEB UI
+
+# File krb5.ini or krb5.conf for clients:
+[logging]
+ default = FILE:/var/log/krb5libs.log
+ kdc = FILE:/var/log/krb5kdc.log
+ admin_server = FILE:/var/log/kadmind.log
+[libdefaults]
+ dns_lookup_realm = false
+ ticket_lifetime = 24h
+# renew_lifetime = 7d
+ forwardable = true
+ rdns = false
+  pkinit_anchors = /etc/pki/tls/certs/ca-bundle.crt
+  default_realm = ADH-SEC.COM
+[realms]
+ ADH-SEC.COM = {
+  admin_server = winda-test-1.adh-sec.com
+  kdc = winda-test-1.adh-sec.com
+ }
+[domain_realm]
+ adh-sec.com = ADH-SEC.COM
+ .adh-sec.com = ADH-SEC.COM
+
+# Firefox
+# Open about:config and set Configuration:
+network.negotiate-auth.trusted-uris: .ru-central1.internal
+network.automatic-ntlm-auth.trusted-uris: .ru-central1.internal
+network.auth.use-sspi: false
+
+# Chrome
+# Change Chrome shortcut target:
+"<path>/chrome.exe" --AuthServerAllowlist=".adh-sec.com" --AuthNegotiateDelegateAllowlist=".adh-sec.com" --AuthSchemes="digest,ntlm,negotiate" 
+
+# End of Lab work Kerberos Auth WEB UI
+
+# Lab work Enable Ranger AD usersync
+
+# Ranger: LDAP sync source for User synchronizer
+# Enable "LDAP sync source for User synchronizer" switch, enable "Show advanced" switch, fill in the specified fields and restart Ranger service
+
+ranger.usersync.ldap.binddn:
+CN=ads-adminXX,OU=USERS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+
+ranger.usersync.ldap.deltasync:
+true
+
+LDAP bind password:
+ads@2015
+
+ranger.usersync.ldap.searchBase:
+OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+
+ranger.usersync.ldap.url:
+ldaps://winda-test-1.adh-sec.com:636
+
+ranger.usersync.ldap.user.searchbase:
+OU=USERS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+
+ranger.usersync.group.searchenabled:
+true
+
+ranger.usersync.group.search.first.enabled:
+false
+
+ranger.usersync.group.usermapsyncenabled:
+true
+
+ranger.usersync.group.objectclass:
+group
+
+ranger.usersync.group.searchbase:
+OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+
+
+
+
+# Open Web UI Range Admin and open tab Users/Groups/Roles. Find new synchronized Users(ads-adminXX,...) and Groups(ads-adminsXX,...).
+User Name											Email Address	Role		User Source	Groups	Visibility
+ads-adminXX												User			External	ads-adminsXX			Visible
+...
+
+
+# View log file for errors of sync
+tail -f /var/log/ranger/usersync/usersync-ads-n-XX-adps.ru-central1.internal-ranger.log
+
+# End of Lab work Enable Ranger AD usersync
+
+# Lab work Enable Ranger Admin AD user auth
+
+# Ranger: Active Directory sync source for Ranger Admin authentication
+# Change the field
+ranger.authentication.method:
+ACTIVE_DIRECTORY
+
+# Enable "Active Directory sync source for Ranger Admin authentication" switch, fill in the specified fields and restart Ranger service
+
+ranger.ldap.ad.url:
+ldaps://winda-test-1.adh-sec.com:636
+
+ranger.ldap.ad.bind.dn:
+CN=ads-adminXX,OU=USERS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+
+ranger.ldap.ad.bind.password:
+ads@2015
+
+ranger.ldap.ad.base.dn:
+OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+
+ranger.ldap.ad.domain:
+adh-sec.com
+
+
+# Open Web UI Range Admin and enter credential ads-adminXX. Check permisions for tab's
+
+# View log file for errors of sync
+tail -f /var/log/ranger/admin/ranger-admin-ads-a-XX-adps.ru-central1.internal-ranger.log
+
+# End of Lab work Enable Ranger Admin AD user auth
+
+
+# Lab work SSSD
+
+# Install packages
+sudo apt install -y sssd-ad sssd-tools realmd adcli oddjob oddjob-mkhomedir
+
+realm discover adh-sec.com --verbose
+
+# * Resolving: _ldap._tcp.adh-sec.com
+# * Resolving: adh-sec.com
+# * No results: adh-sec.com
+# realm: No such realm found: adh-sec.com
+
+# Add domain alias adh-sec.com
+vi /etc/hosts 
+# ...
+# 10.129.0.148 winda-test-1.adh-sec.com winda adh-sec.com
+# ...
+
+realm discover adh-sec.com --verbose
+# * Resolving: _ldap._tcp.adh-sec.com
+# * Performing LDAP DSE lookup on: 10.129.0.148
+# * Successfully discovered: adh-sec.com
+# adh-sec.com
+# type: kerberos
+# realm-name: ADH-SEC.COM
+# domain-name: adh-sec.com
+# configured: no
+# server-software: active-directory
+# client-software: sssd
+# required-package: oddjob
+# required-package: oddjob-mkhomedir
+# required-package: sssd
+# required-package: adcli
+# required-package: samba-common-tools
+
+# To join a computer to a domain
+sudo realm join --verbose --user=ads-adminXX  --computer-ou='OU=COMPUTERS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com' adh-sec.com
+
+# To leave domain 
+# realm leave adh-sec.com -v
+
+
+# Change use_fully_qualified_names = True -> False for recognize group membership
+sudo vi /etc/sssd/sssd.conf
+# [sssd]
+# domains = adh-sec.com
+# config_file_version = 2
+# services = nss, pam
+# 
+# [domain/adh-sec.com]
+# ad_server = adh-sec.com
+# ad_domain = adh-sec.com
+# krb5_realm = ADH-SEC.COM
+# realmd_tags = manages-system joined-with-adcli
+# cache_credentials = True
+# id_provider = ad
+# krb5_store_password_if_offline = True
+# default_shell = /bin/bash
+# ldap_id_mapping = True
+# use_fully_qualified_names = False
+# fallback_homedir = /home/%u@%d
+# access_provider = ad
+
+sudo sed -i 's/^use_fully_qualified_names = .*/use_fully_qualified_names = False/g' /etc/sssd/sssd.conf
+
+# Restart sssd service and clear caches
+sudo systemctl stop sssd
+( rm -f /var/lib/sss/db/* ) && ( rm -f /var/lib/sss/mc/* )
+sudo systemctl start sssd
+sudo pam-auth-update --enable mkhomedir
+
+
+# Use Kerberos
+cat <<EOL > /tmp/client.jaas
+KafkaClient {
+com.sun.security.auth.module.Krb5LoginModule required
+useTicketCache=true;
+};
+EOL
+
+## OR
+# vi /tmp/client.jaas
+# 
+# KafkaClient {
+# com.sun.security.auth.module.Krb5LoginModule required
+# useTicketCache=true;
+# };
+
+# Create a configuration file .properties for the user without SSL
+cat <<EOL > /tmp/client.properties
+security.protocol=SASL_PLAINTEXT
+sasl.mechanism=GSSAPI
+sasl.kerberos.service.name=kafka
+EOL
+
+##OR
+# vi /tmp/client.properties
+# 
+# security.protocol=SASL_PLAINTEXT
+# sasl.mechanism=GSSAPI
+# sasl.kerberos.service.name=kafka
+
+# Create a configuration file .properties for the user with SSL
+cat <<EOL > /tmp/client.properties
+security.protocol=SASL_SSL
+sasl.mechanism=GSSAPI
+sasl.kerberos.service.name=kafka
+EOL
+
+##OR
+# vi /tmp/client_ssl.properties
+# security.protocol=SASL_SSL
+# sasl.mechanism=GSSAPI
+# sasl.kerberos.service.name=kafka
+
+
+# Export the generated client.jaas file as a JVM option
+export  KAFKA_OPTS="-Djava.security.auth.login.config=/tmp/client.jaas"
+
+# Create a ticket for ads-adminXX
+kinit ads-adminXX
+
+# List Kafka Topics (use FQDN for a kafka broker)
+/usr/bin/kafka-topics.sh --list --bootstrap-server $(hostname -f):9092 --command-config /tmp/client.properties
+
+# Read messages from a topic
+/usr/lib/kafka/bin/kafka-console-consumer.sh --topic local-file-source-distributed --from-beginning  --bootstrap-server $(hostname -f):9092 --consumer.config /tmp/client.properties
+
+
+# Enable Ranger plugins: Kafka
+# Open Web UI Ranger Admin and create Kafka policy "topic local-file-source-distributed" with Allow Conditions
+# Policy Name:	topic local-file-source-distributed
+# Resources:	topic : 		local-file-source-distributed
+#				consumergroup : *
+# Allow Conditions:
+# Select Role	Select Group	Select User	Permissions	Delegate Admin
+# --			ads-adminsXX		--			Consume		false
+
+/usr/lib/kafka/bin/kafka-console-consumer.sh --topic local-file-source-distributed --from-beginning  --bootstrap-server $(hostname -f):9092 --consumer.config /tmp/client.properties
+# ads-a-20-node-1.ru-central1.internal##test1##Tue Oct  8 05:35:19 UTC 2024
+# ads-a-20-node-3.ru-central1.internal##test1##Tue Oct  8 05:35:30 UTC 2024
+# ads-a-20-node-3.ru-central1.internal##test1##Tue Oct  8 05:35:32 UTC 2024

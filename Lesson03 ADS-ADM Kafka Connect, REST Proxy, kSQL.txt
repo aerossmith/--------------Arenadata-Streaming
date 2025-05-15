@@ -1,0 +1,250 @@
+# Lab Work Topic 
+# Create Topic using ADS Control (replicas=1, partitions=3)
+
+# Generate Current Assignment
+# Create file r_topics.json
+vi r_topics.json
+{
+	"version":1,
+	"topics":  [{"topic": "test"}]
+}
+
+
+#Current partition replica assignment
+/usr/lib/kafka/bin/kafka-reassign-partitions.sh --topics-to-move-json-file r_topics.json  --bootstrap-server localhost:9092  --generate --broker-list  "1,2,3" 
+
+{"version":1,"partitions":[{"topic":"test","partition":0,"replicas":[1],"log_dirs":["any"]},{"topic":"test","partition":1,"replicas":[2],"log_dirs":["any"]},{"topic":"test","partition":2,"replicas":[3],"log_dirs":["any"]}]}
+
+# Create json-file partition replica assignment
+vi r.json
+{
+  "version": 1,
+  "partitions": [
+    {
+      "topic": "test",
+      "partition": 0,
+      "replicas": [1, 2, 3],
+      "log_dirs":["any","any","any"]
+    },
+    {
+      "topic": "test",
+      "partition": 1,
+      "replicas": [1, 2, 3],
+      "log_dirs":["any","any","any"]
+
+    },
+    {
+      "topic": "test",
+      "partition": 2,
+      "replicas": [1, 2, 3],
+      "log_dirs":["any","any","any"]
+    }
+  ]
+}
+
+# Reassign  Partitions with Replication = 3
+/usr/lib/kafka/bin/kafka-reassign-partitions.sh --bootstrap-server localhost:9092 --reassignment-json-file r.json --execute
+
+
+
+# Change cleanup.policy and min.insync.replicas for Topic "test"
+/usr/lib/kafka/bin/kafka-configs.sh --bootstrap-server localhost:9092 --entity-type topics --entity-name test --alter --add-config cleanup.policy=compact
+/usr/lib/kafka/bin/kafka-configs.sh --bootstrap-server localhost:9092 --entity-type topics   --entity-name test --alter --add-config min.insync.replicas=2
+
+# End Lab Work Topic 
+
+# Demo Kafka FileStream Connectors
+
+# On Hosts: ads-a-XX-node-1, ads-a-XX-node-2, ads-a-XX-node-3
+sudo mkdir /etc/kafka/plugins/
+sudo cp /usr/lib/kafka-connect/libs/connect-file-*.jar /etc/kafka/plugins/
+# Open Kafka Connect settings in ADCM: Clusters -> ADS -> Services -> Kafka Connect -> Primary configuration
+# Change the plugin.path field in connect-distributed.properties
+plugin.path:
+/etc/kafka/plugins/
+# In ADCM Run Action: Restart Kafka Connect Service
+
+# Open Link: http://ads-a-XX-node-1:8083/connector-plugins
+curl http://ads-a-XX-node-1:8083/connector-plugins
+# [
+#   {
+#     "class": "org.apache.kafka.connect.file.FileStreamSinkConnector",
+#     "type": "sink",
+#     "version": "3.3.2"
+#   },
+#   {
+#     "class": "org.apache.kafka.connect.file.FileStreamSourceConnector",
+#     "type": "source",
+#     "version": "3.3.2"
+#   },
+#   {
+#     "class": "org.apache.kafka.connect.mirror.MirrorCheckpointConnector",
+#     "type": "source",
+#     "version": "3.3.2"
+#   },
+#   {
+#     "class": "org.apache.kafka.connect.mirror.MirrorHeartbeatConnector",
+#     "type": "source",
+#     "version": "3.3.2"
+#   },
+#   {
+#     "class": "org.apache.kafka.connect.mirror.MirrorSourceConnector",
+#     "type": "source",
+#     "version": "3.3.2"
+#   }
+# ]
+
+# On Hosts: ads-a-XX-node-1, ads-a-XX-node-2, ads-a-XX-node-3
+mkdir /tmp/connect_source
+# Create Topic "local-file-source-distributed"
+kafka-topics.sh --create --topic local-file-source-distributed --bootstrap-server localhost:9092 --partitions 3 --replication-factor 3
+
+# Create Connector Config:local-file-source-distributed-1, local-file-source-distributed-2, local-file-source-distributed-3
+curl -X POST -H "Content-Type: application/json" --data '{
+  "name": "local-file-source-distributed-1",
+  "config": {
+    "connector.class": "org.apache.kafka.connect.file.FileStreamSourceConnector",
+    "tasks.max": "3",
+    "file": "/tmp/connect_source/file.txt",
+    "topic": "local-file-source-distributed",
+    "group.id": "connect-local-file-source-distributed",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.storage.StringConverter"
+  }
+}' http://localhost:8083/connectors
+
+curl -X POST -H "Content-Type: application/json" --data '{
+  "name": "local-file-source-distributed-2",
+  "config": {
+    "connector.class": "org.apache.kafka.connect.file.FileStreamSourceConnector",
+    "tasks.max": "1",
+    "file": "/tmp/connect_source/file.txt",
+    "topic": "local-file-source-distributed",
+    "group.id": "connect-local-file-source-distributed",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.storage.StringConverter"
+  }
+}' http://localhost:8083/connectors
+
+
+curl -X POST -H "Content-Type: application/json" --data '{
+  "name": "local-file-source-distributed-3",
+  "config": {
+    "connector.class": "org.apache.kafka.connect.file.FileStreamSourceConnector",
+    "tasks.max": "1",
+    "file": "/tmp/connect_source/file.txt",
+    "topic": "local-file-source-distributed",
+    "group.id": "connect-local-file-source-distributed",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.storage.StringConverter"
+  }
+}' http://localhost:8083/connectors
+ 
+# Get Status
+curl http://ads-a-XX-node-1:8083/connectors?expand=status
+{
+  "local-file-source-distributed-1": {
+    "status": {
+      "name": "local-file-source-distributed-1",
+      "connector": {
+        "state": "RUNNING",
+        "worker_id": "ads-a-XX-node-3.ru-central1.internal:8083"
+      },
+      "tasks": [
+        {
+          "id": 0,
+          "state": "RUNNING",
+          "worker_id": "ads-a-XX-node-3.ru-central1.internal:8083"
+        }
+      ],
+      "type": "source"
+    }
+  },
+  "local-file-source-distributed-2": {
+    "status": {
+      "name": "local-file-source-distributed2",
+      "connector": {
+        "state": "RUNNING",
+        "worker_id": "ads-a-XX-node-1.ru-central1.internal:8083"
+      },
+      "tasks": [
+        {
+          "id": 0,
+          "state": "RUNNING",
+          "worker_id": "ads-a-XX-node-1.ru-central1.internal:8083"
+        }
+      ],
+      "type": "source"
+    }
+  },
+  "local-file-source-distributed-3": {
+    "status": {
+      "name": "local-file-source-distributed-3",
+      "connector": {
+        "state": "RUNNING",
+        "worker_id": "ads-a-XX-node-2.ru-central1.internal:8083"
+      },
+      "tasks": [
+        {
+          "id": 0,
+          "state": "RUNNING",
+          "worker_id": "ads-a-XX-node-2.ru-central1.internal:8083"
+        }
+      ],
+      "type": "source"
+    }
+  }
+}
+
+# Run Console Consumer
+kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic local-file-source-distributed --group connect-local-file-source-distributed
+
+
+# On Hosts: ads-a-XX-node-1, ads-a-XX-node-2, ads-a-XX-node-3
+echo "$(hostname)##test1##$(date)" >> /tmp/connect_source/file.txt
+
+# Delete Connectors
+curl -X DELETE http://localhost:8083/connectors/local-file-source-distributed-1
+curl -X DELETE http://localhost:8083/connectors/local-file-source-distributed-2
+curl -X DELETE http://localhost:8083/connectors/local-file-source-distributed-3
+# End of Demo Kafka FileStream Connectors
+
+# Demo Kafka Rest Proxy
+# Get Topic Info
+curl http://ads-a-XX-node-3:8082/topics/local-file-source-distributed
+# "name": "local-file-source-distributed",
+#   "configs": {
+#     "compression.type": "producer",
+#     "leader.replication.throttled.replicas": "",
+#     "message.downconversion.enable": "true",
+#     "min.insync.replicas": "1",
+#     "segment.jitter.ms": "0",
+#     "cleanup.policy": "delete",
+#     "flush.ms": "9223372036854775807",
+#     "follower.replication.thrott	led.replicas": "",
+#     "segment.bytes": "1073741824",
+#     "retention.ms": "604800000",
+# 	.....
+
+
+# End of Demo Rest Proxy
+
+# Demo Rest Proxy
+
+# Create Topic
+kafka-topics.sh --create --topic orders_topic --bootstrap-server localhost:9092 --partitions 3 --replication-factor 1
+
+# Connect to KSQL server
+sudo ksql http://ads-a-XX-node-2.ru-central1.internal:8088
+
+ksql>
+CREATE STREAM orders_stream (order_id INT, item_id INT, quantity INT, price DECIMAL(5, 2))
+WITH (KAFKA_TOPIC='orders_topic', VALUE_FORMAT='JSON', PARTITIONS=3);
+
+INSERT INTO orders_stream (order_id, item_id, quantity, price) VALUES (1, 101, 2, 49.99);
+# Ctrl+D
+
+kafka-console-consumer.sh --topic orders_topic --bootstrap-server localhost:9092 --from-beginning
+# {"ORDER_ID":1,"ITEM_ID":101,"QUANTITY":2,"PRICE":49.99}
+
+# End of Demo Rest Proxy

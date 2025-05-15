@@ -1,0 +1,185 @@
+# Lab Work MirrorMaker
+
+# Create Topic on Source Cluster ADS (ads-mm2):
+/usr/lib/kafka/bin/kafka-topics.sh --bootstrap-server 10.128.0.100:9092 --topic test-active-topic<XX> --delete
+/usr/lib/kafka/bin/kafka-topics.sh --create --topic test-active-topic<XX> --bootstrap-server 10.128.0.100:9092
+
+# Write Messages (one, two, three) to the Topic test-active-topic<XX> and Check Messages
+/usr/lib/kafka/bin/kafka-console-producer.sh --topic test-active-topic<XX> --bootstrap-server 10.128.0.100:9092 
+>One
+>Two
+>Three
+
+/usr/lib/kafka/bin/kafka-console-consumer.sh --topic test-active-topic00 --bootstrap-server 10.128.0.100:9092 --from-beginning
+One
+Two
+Three
+
+
+
+# Create Connector MSCFromInternalADS(type: MirrorSourceConnector)
+# Edit/Add Properties of the MSCFromInternalADS(type: MirrorSourceConnector) Connector in JSON Format and Click Save
+...
+"name": "MSCFromInternalADS",
+"source.cluster.bootstrap.servers": "ads-mm2-00-node-1.ru-central1.internal:9092,ads-mm2-00-node-2.ru-central1.internal:9092,ads-mm2-00-node-3.ru-central1.internal:9092",
+"target.cluster.bootstrap.servers": "ads-a-XX-node-1.ru-central1.internal:9092,ads-a-XX-node-2.ru-central1.internal:9092,ads-a-XX-node-3.ru-central1.internal:9092",
+"target.cluster.alias": "target",
+"source.cluster.alias": "standby",
+"topics": "test-active-topic<XX>"
+...
+
+# Check Messages for the Topic standby.test-active-topic<XX>
+/usr/lib/kafka/bin/kafka-console-consumer.sh --topic standby.test-active-topic<XX> --bootstrap-server localhost:9092 --from-beginning
+One
+Two
+Three
+
+
+# End of Lab Work MirrorMaker
+
+
+# Lab Work Debezium	
+# On Host ads-a-XX-et
+sudo docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=ads@2015" -e "MSSQL_AGENT_ENABLED=true" -p 1433:1433 --name mssql --hostname sql1 -d mcr.microsoft.com/mssql/server:2019-latest
+# Get SQL Script intit_db.sql from https://github.com/debezium/debezium-examples/blob/main/monitoring/inventory.sql
+curl -L -o  /tmp/init_db.sql "https://raw.githubusercontent.com/debezium/debezium-examples/main/monitoring/inventory.sql"
+
+# Deploy init_db.sql for Docker Container
+sudo docker cp /tmp/init_db.sql mssql:/tmp/init_db.sql
+sudo docker exec -it mssql bash -c '/opt/mssql-tools*/bin/sqlcmd -C -U sa -P $MSSQL_SA_PASSWORD  -i /tmp/init_db.sql'
+# Check Complete DDL
+sudo docker exec -it mssql bash -c '/opt/mssql-tools*/bin/sqlcmd -C -U sa -P $MSSQL_SA_PASSWORD'
+SELECT TABLE_NAME FROM testDB.INFORMATION_SCHEMA.TABLES;
+GO
+# TABLE_NAME
+# --------------------------------------------------------------------------------------------------------------------------------
+# systranschemas
+# change_tables
+# ddl_history
+# lsn_time_mapping
+# captured_columns
+# ...
+
+
+# On Hosts: ads-a-XX-node-1, ads-a-XX-node-2, ads-a-XX-node-3
+sudo mkdir -p /etc/kafka/plugins/debezium
+curl -L -o /tmp/debezium-connector-sqlserver-1.9.8.Final-plugin.tar.gz  "https://repo1.maven.org/maven2/io/debezium/debezium-connector-sqlserver/1.9.8.Final/debezium-connector-sqlserver-1.9.8.Final-plugin.tar.gz"
+tar -xvf /tmp/debezium-connector-sqlserver-1.9.8.Final-plugin.tar.gz -C /tmp
+sudo cp /tmp/debezium-connector-sqlserver/* /etc/kafka/plugins/debezium/
+sudo cp /usr/share/java/kafka-serde-tools/*avro*.jar /etc/kafka/plugins/debezium/
+sudo cp /usr/share/java/kafka-serde-tools/kafka*schema*.jar /etc/kafka/plugins/debezium/
+sudo cp /usr/lib/schema-registry/libs/kafka-schema-registry*jar /etc/kafka/plugins/debezium/
+sudo chmod 755 /etc/kafka/plugins/debezium/*.jar
+
+# In ADCM Run Action: Restart Kafka Connect Service
+# Open Link: http://ads-a-XX-node-1:8083/connector-plugins
+curl http://ads-a-XX-node-1:8083/connector-plugins
+# [
+#   {
+#     "class": "org.apache.kafka.connect.file.FileStreamSinkConnector",
+#     "type": "sink",
+#     "version": "3.3.2"
+#   },
+#   {
+#     "class": "io.debezium.connector.sqlserver.SqlServerConnector",
+#     "type": "source",
+#     "version": "1.9.8.Final"
+#   },
+#   {
+#     "class": "org.apache.kafka.connect.file.FileStreamSourceConnector",
+#     "type": "source",
+#     "version": "3.3.2"
+#   },
+#   {
+#     "class": "org.apache.kafka.connect.mirror.MirrorCheckpointConnector",
+#     "type": "source",
+#     "version": "3.3.2"
+#   },
+#   {
+#     "class": "org.apache.kafka.connect.mirror.MirrorHeartbeatConnector",
+#     "type": "source",
+#     "version": "3.3.2"
+#   },
+#   {
+#     "class": "org.apache.kafka.connect.mirror.MirrorSourceConnector",
+#     "type": "source",
+#     "version": "3.3.2"
+#   }
+# ]
+
+# Create Connector MSSQL(type: SqlServerConnector)
+# Edit/Add Properties of the MSSQL(type: SqlServerConnector) Connector in JSON Format and Click Save:
+{
+  "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector",
+  "transforms.unwrap.delete.handling.mode": "rewrite",
+  "tasks.max": 1,
+  "database.history.kafka.topic": "schema-changes.mssql-inventory",
+  "transforms": ["unwrap"],
+  "output.data.format": "AVRO",
+  "topic.prefix": "mssqlserver",
+  "schema.history.internal.kafka.topic": "schema-changes.mssql-inventory",
+  "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+  "value.converter": "io.confluent.connect.avro.AvroConverter",
+  "key.converter": "io.confluent.connect.avro.AvroConverter",
+  "database.encrypt": "false",
+  "database.user": "sa",
+  "database.names": ["testDB"],
+  "topic.creation.default.replication.factor": "3",  
+  "topic.creation.default.partitions": "5",
+  "topic.creation.enable": "true",
+  "database.history.kafka.bootstrap.servers": "ads-a-XX-node-1:9092",
+  "database.server.name": "ads-a-XX-et",
+  "schema.history.internal.kafka.bootstrap.servers": "ads-a-XX-node-1:9092",
+  "database.port": 1433,
+  "key.converter.schemas.enable": "false",
+  "value.converter.schema.registry.url": "http://ads-a-XX-node-3:8081",
+  "database.hostname": "ads-a-XX-et",
+  "database.password": "ads@2015",
+  "name": "MSSQL",
+  "value.converter.schemas.enable": "false",
+  "transforms.unwrap.add.fields": "op,table,source.ts_ms,ts_ms",
+  "key.converter.schema.registry.url": "http://ads-a-XX-node-3:8081"
+}
+# Find Java Class
+sudo find /usr/lib/ -name "*.jar" | xargs grep AvroConverter.class
+
+
+
+# Insert data into MSSQL: 
+sudo docker exec -it mssql bash -c '/opt/mssql-tools*/bin/sqlcmd -C -U sa -P $MSSQL_SA_PASSWORD'
+USE TestDB;
+INSERT INTO products(name,description,weight) VALUES ('MyScooter','Small',100.14);
+GO
+
+sudo /usr/bin/kafka-avro-console-consumer --bootstrap-server localhost:9092 --topic mssqlserver.testDB.dbo.products --from-beginning --property schema.registry.url=http://ads-a-XX-node-3:8081
+
+#...
+# {
+#     "id": 111,
+#     "name": "MyScooter",
+#     "description": {
+#         "string": "Small"
+#     },
+#     "weight": {
+#         "double": 100.14
+#     },
+#     "__op": {
+#         "string": "c"
+#     },
+#     "__table": {
+#         "string": "products"
+#     },
+#     "__source_ts_ms": {
+#         "long": 1711594767443
+#     },
+#     "__ts_ms": {
+#         "long": 1711598939602
+#     },
+#     "__deleted": {
+#         "string": "false"
+#     }
+# }
+#...
+
+
+# End of Lab Work Debezium

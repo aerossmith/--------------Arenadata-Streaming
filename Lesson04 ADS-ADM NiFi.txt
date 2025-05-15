@@ -1,0 +1,183 @@
+
+vi /tmp/file.txt
+PutFile (put, local, copy, archive, files, filesystem) - NiFi processor that writes the contents of a FlowFile to the local file system.
+ConsumeKafka (kafka, get, ingest, ingress, topic, pubsub, consume) - NiFi processor that consumes messages from Apache Kafka specifically built against the Kafka Consumer API.
+GetFile (local, files, filesystem, ingest, ingress, get, source, input) - NiFi processor that creates FlowFiles from files in a directory.
+RouteText (attributes, routing, text, regexp, regex, filter, search, detect) - NiFi processor that routes textual data based on a set of user-defined rules.
+PublishKafka (kafka, put, send, message, pubsub) - NiFi processor that sends the contents of a FlowFile as a message to Apache Kafka using the Kafka Producer API.
+ReplaceText (text, update, change, replace, modify, regex) - NiFi processor that updates the content of a FlowFile by evaluating a Regular Expression (regex) against it and replacing the section of the content that matches the Regular Expression with some alternate value.
+
+sudo mkdir /tmp/stage
+sudo chmod -R 777 /tmp/stage
+sudo rm -rf /tmp/tag*
+sudo cp /tmp/file.txt /tmp/stage
+cat /tmp/tag-*/file.txt
+
+
+
+
+/usr/lib/kafka/bin/kafka-consumer-groups.sh --all-topics --bootstrap-server localhost:9092 --list
+/usr/lib/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic test-topic --group nifi-user
+
+sudo rm -rf /tmp/tag*
+sudo cp /tmp/file.txt /tmp/stage
+cat /tmp/tag-*/file.txt
+
+
+curl 'https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.1/postgresql-42.7.1.jar' -o /tmp/postgresql-42.7.1.jar
+CREATE TABLE IF NOT EXISTS test_table(descr text) WITH (appendoptimized=true);
+INSERT INTO test_table(text text) VALUES ('PutFile (put, local, copy, archive, files, filesystem) - NiFi processor that writes the contents of a FlowFile to the local file system.')
+
+# Create Parameter Contexts.
+# 1. Manual 
+# or
+# 2. Use NiFi Cli.sh
+
+# Manual
+# Open NiFi UI: Main Menu -> Parameter Contexts
+# File Example Parameters
+dir_in: /tmp/stage
+dir_out1: /tmp/tag-files
+dir_out2: /tmp/tag-kafka
+dir_out3: /tmp/tag-text
+
+#Kafka Example Parameters
+kafka_broker: ads-a-XX-node-1.ru-central1.internal:9092
+topic: test-topic
+
+# ADB Example Parameters
+dev_driver_class: org.postgresql.Driver
+dev_driver_location: /tmp/postgresql-42.7.1.jar
+dev_jdbc_url: jdbc:postgresql://10.128.0.25:5432/adb
+dev_user_name: gpadmin
+dev_user_passsword:
+
+# Use NiFi Cli.sh
+# Create file_example.json
+vi /tmp/file_example.json
+{
+  "name" : "File Example",
+  "description" : "",
+  "parameters" : [ {
+    "parameter" : {
+      "name" : "dir_in",
+      "description" : "",
+      "sensitive" : false,
+      "value" : "/tmp/stage",
+      "provided" : false
+    }
+  }, {
+    "parameter" : {
+      "name" : "dir_out1",
+      "description" : "",
+      "sensitive" : false,
+      "value" : "/tmp/tag-files",
+      "provided" : false
+    }
+  }, {
+    "parameter" : {
+      "name" : "dir_out2",
+      "description" : "",
+      "sensitive" : false,
+      "value" : "/tmp/tag-kafka",
+      "provided" : false
+    }
+  }, {
+    "parameter" : {
+      "name" : "dir_out3",
+      "description" : "",
+      "sensitive" : false,
+      "value" : "/tmp/tag-text",
+      "provided" : false
+    }
+  } ],
+  "inheritedParameterContexts" : [ ]
+}
+
+# Create kafka_example.json
+vi /tmp/kafka_example.json
+{
+  "name" : "Kafka Example",
+  "description" : "",
+  "parameters" : [ {
+    "parameter" : {
+      "name" : "kafka_broker",
+      "description" : "",
+      "sensitive" : false,
+      "value" : "ads-a-XX-node-1.ru-central1.internal:9092",
+      "provided" : false
+    }
+  }, {
+    "parameter" : {
+      "name" : "topic",
+      "description" : "",
+      "sensitive" : false,
+      "value" : "test-topic",
+      "provided" : false
+    }
+  } ],
+  "inheritedParameterContexts" : [ {
+    "component" : {
+      "name" : "File Example"
+    }
+  } ]
+}
+
+# Create adb_example.json
+vi /tmp/adb_example.json
+{
+  "name" : "ADB Example",
+  "description" : "",
+  "parameters" : [ {
+    "parameter" : {
+      "name" : "dev_driver_class",
+      "description" : "",
+      "sensitive" : false,
+      "value" : "org.postgresql.Driver",
+      "provided" : false
+    }
+  }, {
+    "parameter" : {
+      "name" : "dev_driver_location",
+      "description" : "",
+      "sensitive" : false,
+      "value" : "/tmp/postgresql-42.7.1.jar",
+      "provided" : false
+    }
+  }, {
+    "parameter" : {
+      "name" : "dev_jdbc_url",
+      "description" : "",
+      "sensitive" : false,
+      "value" : "jdbc:postgresql://10.128.0.25:5432/adb",
+      "provided" : false
+    }
+  }, {
+    "parameter" : {
+      "name" : "dev_user_name",
+      "description" : "",
+      "sensitive" : false,
+      "value" : "gpadmin",
+      "provided" : false
+    }
+  }, {
+    "parameter" : {
+      "name" : "dev_user_passsword",
+      "description" : "",
+      "sensitive" : false,
+      "provided" : false
+    }
+  } ],
+  "inheritedParameterContexts" : [ {
+    "component" : {
+      "name" : "File Example"
+    }
+  } ]
+}
+
+
+# Import
+/usr/lib/nifi-toolkit/bin/cli.sh nifi import-param-context -u http://ads-a-XX-node-1.ru-central1.internal:9090 -i /tmp/file_example.json
+/usr/lib/nifi-toolkit/bin/cli.sh nifi import-param-context -u http://ads-a-XX-node-1.ru-central1.internal:9090 -i /tmp/kafka_example.json
+/usr/lib/nifi-toolkit/bin/cli.sh nifi import-param-context -u http://ads-a-XX-node-1.ru-central1.internal:9090 -i /tmp/adb_example.json
+

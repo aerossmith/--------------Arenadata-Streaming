@@ -1,0 +1,409 @@
+# Lab work Enable SSL/LDAP for ADS:NiFi
+
+ 
+# Create a 2048 bit RSA private key with OpenSSL.
+# Uses AES 128 only to protect the RSA key pair with a passphrase(bigdata), just in case an unauthorized person can get the key file:
+
+########################################
+#[admin@ads-a-XX-adcm ~]$ 
+########################################
+
+# Install Java (for use keytool), if necessary
+# sudo apt install openjdk-17-jdk
+
+openssl genrsa -aes128 -passout pass:bigdata -out private-node-1.key 2048
+openssl genrsa -aes128 -passout pass:bigdata -out private-node-2.key 2048
+openssl genrsa -aes128 -passout pass:bigdata -out private-node-3.key 2048
+openssl genrsa -aes128 -passout pass:bigdata -out private-adps.key 2048
+openssl genrsa -aes128 -passout pass:bigdata -out private-adsc.key 2048
+
+
+# SSL certificates are provided by Certificate Authorities (CA), which require a Certificate Signing Request (CSR)
+# Create OpenSSL configuration file (csr-<host>.cnf) with AlternativeNames and CN = <fqdn_host>
+hosts=("node-1" "node-2" "node-3" "adps" "adsc")
+
+template="[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+prompt = no
+[req_distinguished_name]
+C = RU
+ST = MSK
+L = Moscow
+O = ARENADATA
+OU = ARENADATA
+CN = ads-a-XX-{host}.ru-central1.internal
+[v3_req]
+keyUsage = keyEncipherment, dataEncipherment
+extendedKeyUsage = serverAuth, clientAuth
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = ads-a-XX-{host}.ru-central1.internal"
+
+for host in "${hosts[@]}"
+do
+  config_file="csr-$host.cnf"
+  echo "${template//\{host\}/$host}" > "$config_file"
+done
+
+
+############## csr-node-1.cnf ##############################
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+prompt = no
+[req_distinguished_name]
+C = RU
+ST = MSK
+L = Moscow
+O = ARENADATA
+OU = ARENADATA
+CN = ads-a-XX-node-1.ru-central1.internal
+[v3_req]
+keyUsage = keyEncipherment, dataEncipherment
+extendedKeyUsage = serverAuth, clientAuth
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = ads-a-XX-node-1.ru-central1.internal
+################# end csr-node-1.cnf #########################
+
+############## csr-node-2.cnf ##############################
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+prompt = no
+[req_distinguished_name]
+C = RU
+ST = MSK
+L = Moscow
+O = ARENADATA
+OU = ARENADATA
+CN = ads-a-XX-node-2.ru-central1.internal
+[v3_req]
+keyUsage = keyEncipherment, dataEncipherment
+extendedKeyUsage = serverAuth, clientAuth
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = ads-a-XX-node-2.ru-central1.internal
+################# end csr-node-1.cnf #########################
+
+############## csr-node-3.cnf ##############################
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+prompt = no
+[req_distinguished_name]
+C = RU
+ST = MSK
+L = Moscow
+O = ARENADATA
+OU = ARENADATA
+CN = ads-a-XX-node-3.ru-central1.internal
+[v3_req]
+keyUsage = keyEncipherment, dataEncipherment
+extendedKeyUsage = serverAuth, clientAuth
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = ads-a-XX-node-3.ru-central1.internal
+################# end csr-node-3.cnf #########################
+
+############## csr-adps.cnf ##############################
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+prompt = no
+[req_distinguished_name]
+C = RU
+ST = MSK
+L = Moscow
+O = ARENADATA
+OU = ARENADATA
+CN = ads-a-XX-adps.ru-central1.internal
+[v3_req]
+keyUsage = keyEncipherment, dataEncipherment
+extendedKeyUsage = serverAuth, clientAuth
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = ads-a-XX-adps.ru-central1.internal
+################# end csr-adps.cnf #########################
+
+############## csr-adsc.cnf ##############################
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+prompt = no
+[req_distinguished_name]
+C = RU
+ST = MSK
+L = Moscow
+O = ARENADATA
+OU = ARENADATA
+CN = ads-a-XX-adsc.ru-central1.internal
+[v3_req]
+keyUsage = keyEncipherment, dataEncipherment
+extendedKeyUsage = serverAuth, clientAuth
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = ads-a-XX-adsc.ru-central1.internal
+################# end csr-adsc.cnf #########################
+
+
+# Generate CSRs (Certificate Signing Requests). The request is associated with your private.key
+# On all host of cluster.
+openssl req -new -config csr-node-1.cnf -key private-node-1.key -out cert-node-1.csr -passin pass:bigdata
+openssl req -new -config csr-node-2.cnf -key private-node-2.key -out cert-node-2.csr -passin pass:bigdata
+openssl req -new -config csr-node-3.cnf -key private-node-3.key -out cert-node-3.csr -passin pass:bigdata
+openssl req -new -config csr-adps.cnf -key private-adps.key -out cert-adps.csr -passin pass:bigdata
+openssl req -new -config csr-adsc.cnf -key private-adsc.key -out cert-adsc.csr -passin pass:bigdata
+
+# Copy the file contents certX.csr, including -----BEGIN CERTIFICATE REQUEST----- and -----END CERTIFICATE REQUEST-----.
+# Open Web UI Microsoft Active Directory Certificate Services https://10.129.0.148/certsrv/certrqxt.asp and paste into Field: Saved Request. 
+# Click Submit and choose Base 64 encoded options. Download certificate and rename saved file. Type the new name "cert-<host>.cer"
+
+# OR
+
+## FileName for Node 
+hosts=("node-1" "node-2" "node-3" "adps" "adsc")
+for host in "${hosts[@]}"
+do
+  CERT_NODE="cert-$host"
+# Get REQUEST_ID
+  REQ_ID=$(curl --silent --ntlm -u "ads-adminXX:ads@2015" \
+    --data-urlencode "Mode=newreq" \
+    --data-urlencode "CertRequest=$(< ${CERT_NODE}.csr)" \
+    --data-urlencode "CertAttrib=CertificateTemplate:Copy of Web Server" \
+    --data-urlencode "TargetStoreFlags=0" \
+    --data-urlencode "SaveCert=yes" \
+    "http://10.129.0.148/certsrv/certfnsh.asp" | grep -oP "(?<=ReqID=)\d+" | head -n1)
+# Get <node>.cer
+  curl --ntlm -u "ads-adminXX:ads@2015" \
+    "http://10.129.0.148/certsrv/certnew.cer?ReqID=$REQ_ID&Enc=b64" -o "${CERT_NODE}.cer"
+done
+
+
+
+# Create file ca-test.pem with TLS CA certificate:
+vi ca-test.pem
+-----BEGIN CERTIFICATE-----
+MIIDezCCAmOgAwIBAgIQOZQ17d3i8IFHVILb8HdoNjANBgkqhkiG9w0BAQsFADBQ
+MRMwEQYKCZImiZPyLGQBGRYDY29tMRcwFQYKCZImiZPyLGQBGRYHYWRoLXNlYzEg
+MB4GA1UEAxMXYWRoLXNlYy1XSU5EQS1URVNULTEtQ0EwHhcNMjIwOTE0MTkyMTE0
+WhcNMjcwOTE0MTkzMTE0WjBQMRMwEQYKCZImiZPyLGQBGRYDY29tMRcwFQYKCZIm
+iZPyLGQBGRYHYWRoLXNlYzEgMB4GA1UEAxMXYWRoLXNlYy1XSU5EQS1URVNULTEt
+Q0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDNHoZtp2zHmi9r4OYU
+yKSG5oVKOsKuaXt1hy2GEBmD1ChQ8lOGidPz4tUxHPPWZ7My8VRLjkIrACjq2qRQ
+yPb1nPtvyhvIYocIHUfFuLhNJYx/tX0j9HSrMBTFFr+zq8bSIjgDnqtye12xoOwA
+RdH2eLIJvPeXWO/owkMS+IX1xsaPfUQZcLVWFwvhjzhUlKpgEz9HeVytIkKF7GhE
+YSHLWnk/6tst5+eRvfzCE6+YUydABN4ksnQokyKRkbDnX7ay0Gom21mcKIhHlW+Q
+uVKu7u15tSzPssZhYr+pEmjQbkRtbOGSQKMYDJM8FgqSUbl2APYfdJuREV/5UsR2
+dufRAgMBAAGjUTBPMAsGA1UdDwQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MB0GA1Ud
+DgQWBBTIuf4TS/zVzW6MZOSIJF0JNEDCiDAQBgkrBgEEAYI3FQEEAwIBADANBgkq
+hkiG9w0BAQsFAAOCAQEAE5TY3VpNtCxzJA09pvJkNK4m417Gcb0EkNcI+fgpxM/T
+EV9LdW8cRJrfKH/5E5dpxpPN1GEFdq3JNeIurdTsCoOmvw11uxM4u8vPqbPTbfYz
+2hb7uFZp48Ix8swlVRk2nKfb0u3VBaoI6wy10R9EZ9T4/5H9TMaGofcFJcD812K3
+FLlxUUR+DzKMHCfekuUcqSI8yRnTvKSgPKPIu3O5dQg4f0iummjd5JqGEb52Qg0G
+//zQCllwWSTJ8qb0MDvhGY2tmH4C0Mk17TRZ8W+i/RpBLPjVQ08bI6NR7O2bhFQS
+EjOI0fKuB/FPEk2DgGk6iWzm1EGTt4uxOHnTgyqq5w==
+-----END CERTIFICATE-----
+
+
+# Add ca-test.pem, cert-node-1.cer, cert-node-2.cer, cert-node-3.cer, cert-adps.cer, cert-adsc.cer  into truststore.jks, storepass - bigdata.
+# For the ADS services JMX Agent server, the storepass must not be a NUMBER!
+keytool -import -keystore truststore.jks -noprompt -trustcacerts -alias root -file ca-test.pem -storetype jks -storepass bigdata
+
+keytool -import -keystore truststore.jks -noprompt -trustcacerts -alias ads-a-XX-node-1.ru-central1.internal -file cert-node-1.cer -storetype jks -storepass bigdata
+keytool -import -keystore truststore.jks -noprompt -trustcacerts -alias ads-a-XX-node-2.ru-central1.internal -file cert-node-2.cer -storetype jks -storepass bigdata
+keytool -import -keystore truststore.jks -noprompt -trustcacerts -alias ads-a-XX-node-3.ru-central1.internal -file cert-node-3.cer -storetype jks -storepass bigdata
+keytool -import -keystore truststore.jks -noprompt -trustcacerts -alias ads-a-XX-adps.ru-central1.internal -file cert-adps.cer -storetype jks -storepass bigdata
+keytool -import -keystore truststore.jks -noprompt -trustcacerts -alias ads-a-XX-adsc.ru-central1.internal -file cert-adsc.cer -storetype jks -storepass bigdata
+
+keytool -list -v -keystore truststore.jks -storepass bigdata | grep ads-a
+
+# Created a Keystore in PKCS12 Format including the signed certificate (cert_X.cer) and the CA file(ca-test.pem) with the private key (private-X.key), storepass - bigdata.
+# For the ADS services JMX Agent server, the storepass must not be a NUMBER!
+
+openssl pkcs12 -export -in cert-node-1.cer -inkey private-node-1.key -out keystore-node-1.p12 -name ads-a-XX-node-1.ru-central1.internal -CAfile ca-test.pem -caname root -password pass:bigdata -passin pass:bigdata
+openssl pkcs12 -export -in cert-node-2.cer -inkey private-node-2.key -out keystore-node-2.p12 -name ads-a-XX-node-2.ru-central1.internal -CAfile ca-test.pem -caname root -password pass:bigdata -passin pass:bigdata
+openssl pkcs12 -export -in cert-node-3.cer -inkey private-node-3.key -out keystore-node-3.p12 -name ads-a-XX-node-3.ru-central1.internal -CAfile ca-test.pem -caname root -password pass:bigdata -passin pass:bigdata
+openssl pkcs12 -export -in cert-adps.cer -inkey private-adps.key -out keystore-adps.p12 -name ads-a-XX-adps.ru-central1.internal -CAfile ca-test.pem -caname root -password pass:bigdata -passin pass:bigdata
+openssl pkcs12 -export -in cert-adsc.cer -inkey private-adsc.key -out keystore-adsc.p12 -name ads-a-XX-adsc.ru-central1.internal -CAfile ca-test.pem -caname root -password pass:bigdata -passin pass:bigdata
+
+# List the certificates stored in a PKCS12 keystore
+keytool -list -v -keystore keystore-node-1.p12 -storepass bigdata -storetype PKCS12 | grep ads-a
+keytool -list -v -keystore keystore-node-2.p12 -storepass bigdata -storetype PKCS12 | grep ads-a
+keytool -list -v -keystore keystore-node-3.p12 -storepass bigdata -storetype PKCS12 | grep ads-a
+keytool -list -v -keystore keystore-adps.p12 -storepass bigdata -storetype PKCS12 | grep ads-a
+keytool -list -v -keystore keystore-adsc.p12 -storepass bigdata -storetype PKCS12 | grep ads-a
+
+# Import PKCS12 store -> JKS store
+keytool -importkeystore -deststorepass bigdata -destkeypass bigdata -destkeystore keystore-node-1.jks -srckeystore keystore-node-1.p12 -srcstoretype PKCS12 -deststoretype JKS -srcstorepass bigdata -alias ads-a-XX-node-1.ru-central1.internal
+keytool -importkeystore -deststorepass bigdata -destkeypass bigdata -destkeystore keystore-node-2.jks -srckeystore keystore-node-2.p12 -srcstoretype PKCS12 -deststoretype JKS -srcstorepass bigdata -alias ads-a-XX-node-2.ru-central1.internal
+keytool -importkeystore -deststorepass bigdata -destkeypass bigdata -destkeystore keystore-node-3.jks -srckeystore keystore-node-3.p12 -srcstoretype PKCS12 -deststoretype JKS -srcstorepass bigdata -alias ads-a-XX-node-3.ru-central1.internal
+keytool -importkeystore -deststorepass bigdata -destkeypass bigdata -destkeystore keystore-adps.jks -srckeystore keystore-adps.p12 -srcstoretype PKCS12 -deststoretype JKS -srcstorepass bigdata -alias ads-a-XX-adps.ru-central1.internal
+keytool -importkeystore -deststorepass bigdata -destkeypass bigdata -destkeystore keystore-adsc.jks -srckeystore keystore-adsc.p12 -srcstoretype PKCS12 -deststoretype JKS -srcstorepass bigdata -alias ads-a-XX-adsc.ru-central1.internal
+
+keytool -list -v -keystore keystore-<host>.jks -storepass bigdata | grep "Alias name"
+keytool -list -v -keystore keystore-<host>.jks -storepass bigdata | grep "Owner"
+keytool -list -v -keystore keystore-<host>.jks -storepass bigdata | grep "DNSName"
+
+keytool -list -v -keystore keystore-node-1.jks -storepass bigdata | grep "Alias name"
+keytool -list -v -keystore keystore-node-1.jks -storepass bigdata | grep "Owner"
+keytool -list -v -keystore keystore-node-1.jks -storepass bigdata | grep "DNSName"
+
+
+
+############################################
+# On ALL hosts of clusters: ADS, ADPS, ADSC
+############################################
+# Run If Necessary
+echo "10.129.0.148 winda-test-1.adh-sec.com winda adh-sec.com" | sudo tee -a /etc/hosts
+
+# Copy files *.cer,*.pem on all hosts from ads-a-XX-adcm.ru-central1.internal
+sudo -u admin scp -o "StrictHostKeyChecking no" ads-a-XX-adcm.ru-central1.internal:/home/admin/*.cer ./
+
+sudo -u admin scp -o "StrictHostKeyChecking no" ads-a-XX-adcm.ru-central1.internal:/home/admin/*.jks ./
+
+sudo -u admin scp -o "StrictHostKeyChecking no" ads-a-XX-adcm.ru-central1.internal:/home/admin/*.pem ./
+
+# sudo cp /home/admin/ca-test.pem /usr/local/share/ca-certificates/ca-test.crt
+
+# sudo update-ca-certificates
+
+# On ALL hosts of clusters: ADS (node-1, node-2, node-3), ADPS(adps)
+# import truststore.jks to java/cacerts -  Java truststore
+sudo keytool -importkeystore -noprompt -srckeystore truststore.jks -destkeystore /etc/ssl/certs/java/cacerts -deststorepass changeit -srcstorepass bigdata
+
+# On ALL hosts of clusters: ADS (node-1, node-2, node-3), ADPS(adps), ADSC(adsc)
+sudo cp truststore.jks /etc/ssl/truststore.jks
+sudo ls -la /etc/ssl/
+sudo cp keystore-$(hostname | awk -F'[-.]' '{print ($0 ~ /node-[0-9]+/)? $4"-"$5 : $4}').jks /etc/ssl/keystore.jks
+sudo ls -la /etc/ssl/
+
+keytool -list -v -keystore /etc/ssl/keystore.jks -storepass bigdata | grep "Alias name"
+
+
+# Change NiFi -> Primary Configuration -> authorizers.xml:
+# DN NiFi's nodes list:
+# keytool -list -v -keystore /etc/pki/ca-trust/extracted/java/truststore.jks -storepass bigdata | grep "Owner"
+
+CN=ads-a-XX-node-1.ru-central1.internal, OU=ARENADATA, O=ARENADATA, L=Moscow, ST=MSK, C=RU
+CN=ads-a-XX-node-2.ru-central1.internal, OU=ARENADATA, O=ARENADATA, L=Moscow, ST=MSK, C=RU
+CN=ads-a-XX-node-3.ru-central1.internal, OU=ARENADATA, O=ARENADATA, L=Moscow, ST=MSK, C=RU
+
+
+# NiFi Initial Admin:
+ads-adminXX
+
+# NiFi Initial Admin password:
+ads@2015
+
+# LDAP Tree for config: LDAP Login Identitity Provider  and  config: LDAP UserGroupProvider
+# 
+
+"OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com"
+	"OU=USERS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com"
+		"CN=ads-adminXX,OU=USERS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com"
+		"CN=nifi-adminXX,OU=USERS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com"
+	"OU=COMPUTERS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com"
+		...
+	"OU=GROUPS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com"
+		"CN=ads-adminsXX,OU=GROUPS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com"
+		"CN=nifi-adminsXX,OU=GROUPS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com"
+	"OU=PRINCIPALS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com"
+		...
+
+
+# LDAP Login Identitity Provider:
+
+# Authentication Strategy:
+LDAPS
+
+# Manager DN:
+CN=ads-adminXX,OU=USERS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+
+# Manager Password:
+ads@2015
+
+# Referral Strategy
+FOLLOW
+
+# LDAP URL
+ldaps://winda-test-1.adh-sec.com:636
+
+# User Search Base
+OU=USERS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+
+# User Search Filter
+(sAMAccountName={0})
+
+# Identity Strategy
+USE_USERNAME
+
+
+
+# LDAP UserGroupProvider:
+# Authentication Strategy
+LDAPS
+
+# Manager DN:
+CN=ads-adminXX,OU=USERS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+
+# Manager Password:
+ads@2015
+
+# Referral Strategy:
+FOLLOW
+
+# LDAP URL
+ldaps://winda-test-1.adh-sec.com:636
+
+# User Search Base
+OU=USERS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+
+# User Object Class:
+person
+
+# User Search Scope:
+SUBTREE	
+
+# User Identity Attribute:
+sAMAccountName
+
+# Group Search Base
+OU=GROUPS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+
+# Group Object Class:
+group
+
+# Group Search Scope:
+SUBTREE	
+
+# Group Member Attribute:
+member
+
+
+
+# ADS/ADPS -> Enable SSL
+Keystore path: /etc/ssl/keystore.jks
+Keystore password: bigdata
+Truststore path: /etc/ssl/truststore.jks
+Truststore password: bigdata
+
+# End of Lab work Enable SSL/LDAP for ADS:NiFi
+
+
+# Enable Ranger Plugin NiFi
+
+# Before enabling the Ranger Plugin, Need to Configure User Synchronization from LDAP to Ranger 
+# and Add the User ads-adminXX to the 'all' NiFi-Policy During Plugin Activation.
+
+# Change NiFi -> Primary Configuration -> authorizers.xml:
+Ranger Admin Identitity:
+CN=adh-sec-WINDA-TEST-1-CA, DC=adh-sec, DC=com
+
+# Enable Ranger Plugin Kafka
+
+
+
+
+
