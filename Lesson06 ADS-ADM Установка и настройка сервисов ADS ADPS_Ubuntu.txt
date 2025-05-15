@@ -26,13 +26,13 @@ Kadmin server:
 winda-test-1.adh-sec.com
 
 Kadmin principal:
-ads-adminXX
+ads-admin16
 
 Kadmin password:
 ads@2015
 
 Admin DN:
-CN=ads-adminXX,OU=USERS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+CN=ads-admin16,OU=USERS,OU=Student16,OU=ADS,OU=Learning,DC=adh-sec,DC=com
 
 LDAP URL:
 ldaps://winda-test-1.adh-sec.com
@@ -40,8 +40,8 @@ ldaps://winda-test-1.adh-sec.com
 # ldap://winda-test-1.adh-sec.com:389
 
 Container DN:
-OU=PRINCIPALS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
-# OU=StudentXX,OU=Learning,DC=adh-sec,DC=com
+OU=PRINCIPALS,OU=Student16,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+# OU=Student16,OU=Learning,DC=adh-sec,DC=com
 
 TLS CA certificate Path:
 /usr/local/share/ca-certificates/ca-test.crt
@@ -73,8 +73,8 @@ EjOI0fKuB/FPEk2DgGk6iWzm1EGTt4uxOHnTgyqq5w==
 # sudo systemctl restart nifi.service
 
 # Check LDAP TLS
-ldapsearch -x -d 1 -LLL -H ldaps://winda-test-1.adh-sec.com -b 'OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com' -D "ads-adminXX@adh-sec.com" "objectclass=group" -W name
-ldapsearch -x -d 1 -ZZLLL -H ldaps://winda-test-1.adh-sec.com -b 'OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com' -D "ads-adminXX@adh-sec.com" "objectclass=group" -W name
+ldapsearch -x -d 1 -LLL -H ldaps://winda-test-1.adh-sec.com -b 'OU=Student16,OU=ADS,OU=Learning,DC=adh-sec,DC=com' -D "ads-admin16@adh-sec.com" "objectclass=group" -W name
+ldapsearch -x -d 1 -ZZLLL -H ldaps://winda-test-1.adh-sec.com -b 'OU=Student16,OU=ADS,OU=Learning,DC=adh-sec,DC=com' -D "ads-admin16@adh-sec.com" "objectclass=group" -W name
 
 # Execute on ALL HOSTS
 sudo update-ca-certificates
@@ -136,7 +136,7 @@ network.auth.use-sspi: false
 # Enable "LDAP sync source for User synchronizer" switch, enable "Show advanced" switch, fill in the specified fields and restart Ranger service
 
 ranger.usersync.ldap.binddn:
-CN=ads-adminXX,OU=USERS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+CN=ads-admin16,OU=USERS,OU=Student16,OU=ADS,OU=Learning,DC=adh-sec,DC=com
 
 ranger.usersync.ldap.deltasync:
 true
@@ -145,13 +145,13 @@ LDAP bind password:
 ads@2015
 
 ranger.usersync.ldap.searchBase:
-OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+OU=Student16,OU=ADS,OU=Learning,DC=adh-sec,DC=com
 
 ranger.usersync.ldap.url:
 ldaps://winda-test-1.adh-sec.com:636
 
 ranger.usersync.ldap.user.searchbase:
-OU=USERS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+OU=USERS,OU=Student16,OU=ADS,OU=Learning,DC=adh-sec,DC=com
 
 ranger.usersync.group.searchenabled:
 true
@@ -166,19 +166,19 @@ ranger.usersync.group.objectclass:
 group
 
 ranger.usersync.group.searchbase:
-OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+OU=Student16,OU=ADS,OU=Learning,DC=adh-sec,DC=com
 
 
 
 
-# Open Web UI Range Admin and open tab Users/Groups/Roles. Find new synchronized Users(ads-adminXX,...) and Groups(ads-adminsXX,...).
+# Open Web UI Range Admin and open tab Users/Groups/Roles. Find new synchronized Users(ads-admin16,...) and Groups(ads-admins16,...).
 User Name											Email Address	Role		User Source	Groups	Visibility
-ads-adminXX												User			External	ads-adminsXX			Visible
+ads-admin16												User			External	ads-admins16			Visible
 ...
 
 
 # View log file for errors of sync
-tail -f /var/log/ranger/usersync/usersync-ads-n-XX-adps.ru-central1.internal-ranger.log
+tail -f /var/log/ranger/usersync/usersync-ads-n-16-adps.ru-central1.internal-ranger.log
 
 # End of Lab work Enable Ranger AD usersync
 
@@ -195,22 +195,22 @@ ranger.ldap.ad.url:
 ldaps://winda-test-1.adh-sec.com:636
 
 ranger.ldap.ad.bind.dn:
-CN=ads-adminXX,OU=USERS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+CN=ads-admin16,OU=USERS,OU=Student16,OU=ADS,OU=Learning,DC=adh-sec,DC=com
 
 ranger.ldap.ad.bind.password:
 ads@2015
 
 ranger.ldap.ad.base.dn:
-OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com
+OU=Student16,OU=ADS,OU=Learning,DC=adh-sec,DC=com
 
 ranger.ldap.ad.domain:
 adh-sec.com
 
 
-# Open Web UI Range Admin and enter credential ads-adminXX. Check permisions for tab's
+# Open Web UI Range Admin and enter credential ads-admin16. Check permisions for tab's
 
 # View log file for errors of sync
-tail -f /var/log/ranger/admin/ranger-admin-ads-a-XX-adps.ru-central1.internal-ranger.log
+tail -f /var/log/ranger/admin/ranger-admin-ads-a-16-adps.ru-central1.internal-ranger.log
 
 # End of Lab work Enable Ranger Admin AD user auth
 
@@ -251,7 +251,7 @@ realm discover adh-sec.com --verbose
 # required-package: samba-common-tools
 
 # To join a computer to a domain
-sudo realm join --verbose --user=ads-adminXX  --computer-ou='OU=COMPUTERS,OU=StudentXX,OU=ADS,OU=Learning,DC=adh-sec,DC=com' adh-sec.com
+sudo realm join --verbose --user=ads-admin16  --computer-ou='OU=COMPUTERS,OU=Student16,OU=ADS,OU=Learning,DC=adh-sec,DC=com' adh-sec.com
 
 # To leave domain 
 # realm leave adh-sec.com -v
@@ -334,8 +334,8 @@ EOL
 # Export the generated client.jaas file as a JVM option
 export  KAFKA_OPTS="-Djava.security.auth.login.config=/tmp/client.jaas"
 
-# Create a ticket for ads-adminXX
-kinit ads-adminXX
+# Create a ticket for ads-admin16
+kinit ads-admin16
 
 # List Kafka Topics (use FQDN for a kafka broker)
 /usr/bin/kafka-topics.sh --list --bootstrap-server $(hostname -f):9092 --command-config /tmp/client.properties
@@ -351,7 +351,7 @@ kinit ads-adminXX
 #				consumergroup : *
 # Allow Conditions:
 # Select Role	Select Group	Select User	Permissions	Delegate Admin
-# --			ads-adminsXX		--			Consume		false
+# --			ads-admins16		--			Consume		false
 
 /usr/lib/kafka/bin/kafka-console-consumer.sh --topic local-file-source-distributed --from-beginning  --bootstrap-server $(hostname -f):9092 --consumer.config /tmp/client.properties
 # ads-a-20-node-1.ru-central1.internal##test1##Tue Oct  8 05:35:19 UTC 2024
